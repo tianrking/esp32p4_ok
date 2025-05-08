@@ -1,0 +1,62 @@
+# === ESP-IDF / C/C++ General ===
+# Build artifacts
+build/
+*.o
+*.a
+*.elf
+*.map
+*.bin  # Firmware binaries (e.g., from 8-Burn operation/Burn files)
+# sdkconfig is important, should be versioned!
+# sdkconfig.old is a backup, can be ignored
+sdkconfig.old
+
+# === Python (often used with ESP-IDF build system) ===
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+pip-wheel-metadata/
+
+# === IDEs and Editors ===
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sublime-project
+*.sublime-workspace
+*.cproject
+*.project
+*.ds
+*.*.swp
+*.*.swo
+*~
+*.bak
+
+# === OS generated files ===
+.
+*.bak
+*~
+
+# Office Documents (consider converting to Markdown or plain text if possible for better diffs)
+# If you must keep them, they will be versioned.
+# *.docx
+# *.doc
+# *.pdf # Be careful with this, many PDFs in your list are specifications and should be kept.
+
+# Specific Datasheets (optional: if they are very large and easily found online, you might ignore them)
+# 4-Driver_IC_Data_Sheet/ESP32_P4_Chip_Datasheet__CN_V0.4.pdf
+# You might want to version control most datasheets if they are specific to this hardware version or hard to find.
+#DS_Store
+Thumbs.db
+Desktop.ini
+
+# === Vendor-provided Documentation, Tools, Schematics, Datasheets ===
+# These are typically reference materials, not part of your evolving source code.
+# If you customize any of these significantly, you might consider tracking them,
+# but for an initial clean commit, it's better to exclude them.
+ The one above is a generic Espressif datasheet.
+
+# Temporary files from your specific commands
