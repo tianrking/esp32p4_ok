@@ -1,0 +1,2 @@
+source /home/w0x7ce/Downloads/esp32_p4/JC8012P4A1C_I_W_Y/1-Demo/idf-examples/lvgl_demo_v9/build_slave/gdbinit/symbols
+source /home/w0x7ce/Downloads/esp32_p4/JC8012P4A1C_I_W_Y/1-Demo/idf-examples/lvgl_demo_v9/build_slave/gdbinit/connect

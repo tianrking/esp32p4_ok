@@ -1,0 +1,170 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Unlicense OR CC0-1.0
+ */
+#include <stdio.h>
+#include <stdint.h>
+#include <stddef.h>
+#include <string.h>
+#include "esp_system.h"
+#include "nvs_flash.h"
+#include "esp_event.h"
+#include "esp_netif.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
+#include "esp_wifi.h"
+#include "esp_log.h"
+
+// 修改了TAG，使其更符合当前功能
+static const char *TAG = "wifi_connect_demo";
+static EventGroupHandle_t s_wifi_event_group;
+static int s_retry_num = 0;
+
+#define WIFI_CONNECTED_BIT BIT0
+#define WIFI_FAIL_BIT      BIT1
+
+// 直接定义SSID和密码
+#define WIFI_SSID      "SEEED_Solution"
+#define WIFI_PASS      "chck1208"
+#define WIFI_MAXIMUM_RETRY  5 // 你可以根据需要调整重试次数
+
+static void event_handler(void *arg, esp_event_base_t event_base,
+                          int32_t event_id, void *event_data)
+{
+    // ESP_LOGI(TAG, "EVENT type %s id %d", event_base, (int)event_id); // 可以取消注释以查看所有事件
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
+        esp_wifi_connect();
+        ESP_LOGI(TAG, "WIFI_EVENT_STA_START: Initiating Wi-Fi connection...");
+    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        if (s_retry_num < WIFI_MAXIMUM_RETRY) {
+            esp_wifi_connect();
+            s_retry_num++;
+            ESP_LOGI(TAG, "Retry to connect to the AP (%d/%d)", s_retry_num, WIFI_MAXIMUM_RETRY);
+        } else {
+            xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
+            ESP_LOGE(TAG, "Failed to connect to the AP after %d retries.", WIFI_MAXIMUM_RETRY);
+        }
+        // ESP_LOGI(TAG, "Connect to the AP fail"); // 这条日志有点重复，上面已经有更详细的
+    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+        ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
+        ESP_LOGI(TAG, "Got IP address:" IPSTR, IP2STR(&event->ip_info.ip));
+        s_retry_num = 0; // 重置重试计数器
+        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+    }
+}
+
+static void wifi_init_sta(void)
+{
+    s_wifi_event_group = xEventGroupCreate();
+
+    ESP_ERROR_CHECK(esp_netif_init()); // 初始化底层TCP/IP栈
+
+    ESP_ERROR_CHECK(esp_event_loop_create_default()); // 创建默认事件循环
+    esp_netif_create_default_wifi_sta(); // 创建默认的WIFI STA网络接口
+
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT(); // 获取默认的Wi-Fi初始化配置
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg)); // 初始化Wi-Fi驱动
+
+    // 注册Wi-Fi事件和IP事件的处理函数
+    esp_event_handler_instance_t instance_any_id;
+    esp_event_handler_instance_t instance_got_ip;
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
+                    ESP_EVENT_ANY_ID,
+                    &event_handler,
+                    NULL,
+                    &instance_any_id));
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
+                    IP_EVENT_STA_GOT_IP,
+                    &event_handler,
+                    NULL,
+                    &instance_got_ip));
+
+    // 配置Wi-Fi连接参数
+    wifi_config_t wifi_config = {
+        .sta = {
+            // .ssid = WIFI_SSID, // 这样也可以，但strncpy更安全
+            // .password = WIFI_PASS,
+            /* Authmode threshold resets to WPA2 as default if password matches WPA2 standards (pasword len => 8).
+             * If you want to connect the device to deprecated WEP/WPA networks, Please set the threshold value
+             * to WIFI_AUTH_WEP/WIFI_AUTH_WPA_PSK and set the password with length and format matching to
+	         * WIFI_AUTH_WEP/WIFI_AUTH_WPA_PSK standards.
+             */
+            .threshold.authmode = WIFI_AUTH_WPA2_PSK, // 根据你的AP安全设置调整
+            .pmf_cfg = {
+                .capable = true,
+                .required = false
+            },
+        },
+    };
+    // 安全地拷贝SSID和密码
+    strncpy((char *)wifi_config.sta.ssid, WIFI_SSID, sizeof(wifi_config.sta.ssid) -1);
+    strncpy((char *)wifi_config.sta.password, WIFI_PASS, sizeof(wifi_config.sta.password) -1);
+
+
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) ); // 设置Wi-Fi为STA模式
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config) ); // 设置Wi-Fi配置
+    ESP_ERROR_CHECK(esp_wifi_start() ); // 启动Wi-Fi
+
+    ESP_LOGI(TAG, "wifi_init_sta finished.");
+
+    /* 等待连接成功 (WIFI_CONNECTED_BIT) 或连接失败 (WIFI_FAIL_BIT)
+     * 这些位由 event_handler() 设置
+     */
+    EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
+                                           WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
+                                           pdFALSE, // 不清除事件位
+                                           pdFALSE, // 等待任一位
+                                           portMAX_DELAY); // 一直等待
+
+    if (bits & WIFI_CONNECTED_BIT) {
+        ESP_LOGI(TAG, "Connected to AP SSID: %s", WIFI_SSID);
+        // ESP_LOGI(TAG, "Password: %s", WIFI_PASS); // 通常不打印密码
+    } else if (bits & WIFI_FAIL_BIT) {
+        ESP_LOGW(TAG, "Failed to connect to SSID: %s", WIFI_SSID);
+    } else {
+        ESP_LOGE(TAG, "UNEXPECTED EVENT");
+    }
+
+    /* 卸载事件处理器，如果不再需要（例如，如果这是一个一次性连接并且之后不再处理Wi-Fi事件）
+     * 但在这个例子中，保持它们注册通常没问题，除非资源非常紧张
+     */
+    // ESP_ERROR_CHECK(esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, instance_got_ip));
+    // ESP_ERROR_CHECK(esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, instance_any_id));
+    // vEventGroupDelete(s_wifi_event_group);
+}
+
+void app_main(void)
+{
+    ESP_LOGI(TAG, "[APP] Startup..");
+    ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
+    ESP_LOGI(TAG, "[APP] IDF version: %s", esp_get_idf_version());
+
+    // 设置全局日志级别
+    esp_log_level_set("*", ESP_LOG_INFO);
+    // 如果需要更详细的Wi-Fi日志，可以取消注释下面这行
+    // esp_log_level_set("wifi", ESP_LOG_VERBOSE);
+    // 设置本模块的日志级别
+    esp_log_level_set(TAG, ESP_LOG_VERBOSE);
+
+
+    // 初始化NVS (Wi-Fi凭证等信息可能会存储在这里，即使我们硬编码了)
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+
+    ESP_LOGI(TAG, "ESP_WIFI_MODE_STA: Initializing Wi-Fi station mode...");
+    wifi_init_sta();
+
+    // MQTT相关的mqtt_app_start()调用已被移除
+
+    ESP_LOGI(TAG, "Wi-Fi connection process finished. Device will idle or perform other tasks if any.");
+    // 在这里，你可以添加其他任务或让设备进入低功耗模式等
+    // 例如，可以创建一个循环让主任务保持活动：
+    // while(1) {
+    //     vTaskDelay(pdMS_TO_TICKS(1000));
+    // }
+}

@@ -1,0 +1,21 @@
+#ifndef MY_UI_H
+#define MY_UI_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "lvgl.h"
+
+/**
+ * @brief 初始化自定义用户界面
+ *
+ * 该函数创建并显示智能家居控制面板。
+ */
+void my_ui_init(void);
+
+#ifdef __cplusplus
+} /*extern "C"*/
+#endif
+
+#endif /*MY_UI_H*/

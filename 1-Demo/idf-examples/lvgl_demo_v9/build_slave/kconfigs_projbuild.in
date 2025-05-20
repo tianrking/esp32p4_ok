@@ -1,0 +1,6 @@
+source "/home/w0x7ce/Downloads/esp_idf_v5.4/components/bootloader/Kconfig.projbuild"
+source "/home/w0x7ce/Downloads/esp_idf_v5.4/components/esp_app_format/Kconfig.projbuild"
+source "/home/w0x7ce/Downloads/esp_idf_v5.4/components/esp_rom/Kconfig.projbuild"
+source "/home/w0x7ce/Downloads/esp_idf_v5.4/components/esptool_py/Kconfig.projbuild"
+source "/home/w0x7ce/Downloads/esp_idf_v5.4/components/partition_table/Kconfig.projbuild"
+source "/home/w0x7ce/Downloads/esp32_p4/JC8012P4A1C_I_W_Y/1-Demo/idf-examples/lvgl_demo_v9/managed_components/espressif__esp_hosted/slave/main/Kconfig.projbuild"
