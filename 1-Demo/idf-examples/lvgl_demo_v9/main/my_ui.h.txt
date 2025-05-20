@@ -1,18 +1,23 @@
 #ifndef MY_UI_H
 #define MY_UI_H
 
+#include "lvgl.h" // 必须包含LVGL头文件
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "lvgl.h"
-
 /**
- * @brief 初始化自定义用户界面
+ * @brief Initializes the custom user interface.
  *
- * 该函数创建并显示智能家居控制面板。
+ * This function should be called after LVGL and the display
+ * have been initialized. It sets up the main screen and any
+ * initial UI elements.
  */
 void my_ui_init(void);
+
+// 你可以在这里声明其他需要在外部访问的UI更新函数或变量
+// 例如: void my_ui_update_wifi_status(bool connected);
 
 #ifdef __cplusplus
 } /*extern "C"*/

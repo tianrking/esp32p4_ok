@@ -1,204 +1,53 @@
-/*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO LTD
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 #include "my_ui.h"
 #include "esp_log.h" // 用于日志输出
-#include "lvgl.h"    // LVGL核心库
 
-// 日志标签
-static const char *TAG = "MY_UI";
+// 可以为你的UI模块定义一个TAG
+static const char *TAG_MY_UI = "MY_UI";
 
-// 按钮尺寸定义
-#define DEVICE_BUTTON_WIDTH  230 // 按钮宽度
-#define DEVICE_BUTTON_HEIGHT 200 // 按钮高度
+// 你可以在这里定义静态的LVGL对象指针，如果需要在其他函数中访问它们
+// static lv_obj_t *wifi_status_label;
 
-// 颜色定义 (类似iOS风格)
-#define SCREEN_BACKGROUND_COLOR    lv_color_hex(0x101212) // 屏幕背景色 (深灰)
-#define BUTTON_OFF_COLOR           lv_color_hex(0x2C2C2E) // 按钮关闭状态背景色 (较暗灰)
-#define BUTTON_ON_COLOR            lv_color_hex(0x007AFF) // 按钮开启状态背景色 (苹果蓝)
-#define BUTTON_ICON_COLOR          lv_color_white()       // 图标颜色
-#define BUTTON_TEXT_COLOR          lv_color_white()       // 主要文字颜色
-#define BUTTON_CATEGORY_TEXT_COLOR lv_color_hex(0xAEAEB2) // 类别文字颜色 (次要灰)
-#define BUTTON_RADIUS              16                     // 按钮圆角半径
-#define BUTTON_SHADOW_OPA          LV_OPA_30              // 按钮阴影不透明度
-#define BUTTON_SHADOW_WIDTH        8                      // 按钮阴影宽度
-#define BUTTON_SHADOW_OFS_Y        3                      // 按钮阴影Y轴偏移
+void my_ui_init(void) {
+    ESP_LOGI(TAG_MY_UI, "Initializing My Custom UI...");
 
-// 设备状态结构体，用于存储每个按钮的状态
-typedef struct {
-    bool is_on;                 // 设备是否开启
-    const char *name_en;        // 设备英文名称 (用于日志和UI)
-    lv_obj_t *icon_label;       // 指向图标标签的指针 (如果需要动态改变图标)
-    // 可以添加更多需要动态更新的元素指针
-} device_state_t;
-
-// 前向声明静态辅助函数
-static void device_button_event_cb(lv_event_t *e);
-static lv_obj_t *create_device_button(lv_obj_t *parent, const char *icon_symbol, const char *name_text_en, const char *category_text_en, bool initial_state);
-
-/**
- * @brief 设备按钮的事件回调函数
- *
- * 处理按钮点击事件，切换设备状态并更新按钮外观。
- * 整个按钮区域都响应此回调。
- * @param e 事件对象
- */
-static void device_button_event_cb(lv_event_t *e) {
-    lv_obj_t *btn = lv_event_get_target(e);          // 获取事件目标对象 (按钮)
-    device_state_t *state = (device_state_t *)lv_obj_get_user_data(btn); // 获取按钮关联的状态数据
-
-    if (!state) {
-        ESP_LOGE(TAG, "Button state is NULL for button!");
+    // 获取当前活动的屏幕 (通常是默认屏幕)
+    lv_obj_t *scr = lv_scr_act();
+    if (!scr) {
+        ESP_LOGE(TAG_MY_UI, "Failed to get active screen!");
         return;
     }
 
-    // 切换状态
-    state->is_on = !state->is_on;
-
-    // 更新按钮背景颜色
-    if (state->is_on) {
-        lv_obj_set_style_bg_color(btn, BUTTON_ON_COLOR, LV_PART_MAIN);
-        // 如果需要，可以更新图标或文本
-        // lv_label_set_text(state->icon_label, LV_SYMBOL_EYE_OPEN); // 示例：改变图标
-        ESP_LOGI(TAG, "Device '%s' turned ON", state->name_en);
-    } else {
-        lv_obj_set_style_bg_color(btn, BUTTON_OFF_COLOR, LV_PART_MAIN);
-        // lv_label_set_text(state->icon_label, LV_SYMBOL_EYE_CLOSE); // 示例：改变图标
-        ESP_LOGI(TAG, "Device '%s' turned OFF", state->name_en);
-    }
-}
-
-/**
- * @brief 创建一个智能家居设备按钮
- *
- * @param parent 父对象
- * @param icon_symbol 图标符号 (例如 LV_SYMBOL_SETTINGS)
- * @param name_text_en 设备英文名称 (例如 "Living Room Light")
- * @param category_text_en 设备英文类别 (例如 "Lighting")
- * @param initial_state 初始状态 (true: 开启, false: 关闭)
- * @return lv_obj_t* 创建的按钮对象
- */
-static lv_obj_t *create_device_button(lv_obj_t *parent, const char *icon_symbol, const char *name_text_en, const char *category_text_en, bool initial_state) {
-    // 1. 创建按钮对象
-    lv_obj_t *btn = lv_btn_create(parent);
-    lv_obj_set_size(btn, DEVICE_BUTTON_WIDTH, DEVICE_BUTTON_HEIGHT);
-    lv_obj_set_style_radius(btn, BUTTON_RADIUS, LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_PART_MAIN); // 设置背景不透明
-    lv_obj_set_style_border_width(btn, 0, LV_PART_MAIN);     // 无边框
-    
-    // 添加阴影效果
-    lv_obj_set_style_shadow_width(btn, BUTTON_SHADOW_WIDTH, LV_PART_MAIN);
-    lv_obj_set_style_shadow_opa(btn, BUTTON_SHADOW_OPA, LV_PART_MAIN);
-    lv_obj_set_style_shadow_ofs_y(btn, BUTTON_SHADOW_OFS_Y, LV_PART_MAIN);
-    lv_obj_set_style_shadow_color(btn, lv_color_black(), LV_PART_MAIN); // 阴影颜色
-
-    lv_obj_set_style_pad_all(btn, 15, LV_PART_MAIN);        // 按钮内部填充
-
-    // 2. 为按钮内容设置 Flex 布局 (垂直排列，内容间有间隔，项目靠左上)
-    lv_obj_set_flex_flow(btn, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(btn, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-
-    // 3. 创建图标标签
-    lv_obj_t *icon = lv_label_create(btn);
-    lv_label_set_text(icon, icon_symbol);
-    lv_obj_set_style_text_font(icon, &lv_font_montserrat_26, LV_PART_MAIN); // 图标字体和大小
-    lv_obj_set_style_text_color(icon, BUTTON_ICON_COLOR, LV_PART_MAIN);
-
-    // 4. 创建文本容器 (用于放置设备名称和类别)
-    lv_obj_t *text_container = lv_obj_create(btn);
-    lv_obj_remove_style_all(text_container); // 移除默认样式，使其透明
-    lv_obj_set_width(text_container, LV_PCT(100)); // 宽度占满按钮
-    lv_obj_set_flex_flow(text_container, LV_FLEX_FLOW_COLUMN); // 内部文本垂直排列
-    lv_obj_set_flex_align(text_container, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-    lv_obj_set_style_pad_gap(text_container, 5, LV_PART_MAIN); // 名称和类别之间的间距
-
-    // 5. 创建设备名称标签
-    lv_obj_t *name_label = lv_label_create(text_container);
-    lv_label_set_text(name_label, name_text_en); // 使用英文名称
-    lv_obj_set_style_text_font(name_label, &lv_font_montserrat_16, LV_PART_MAIN); // 名称字体和大小
-    lv_obj_set_style_text_color(name_label, BUTTON_TEXT_COLOR, LV_PART_MAIN);
-    lv_label_set_long_mode(name_label, LV_LABEL_LONG_WRAP); // 长文本自动换行
-    lv_obj_set_width(name_label, LV_PCT(100)); // 宽度占满文本容器
-
-    // 6. 创建设备类别标签
-    lv_obj_t *category_label = lv_label_create(text_container);
-    lv_label_set_text(category_label, category_text_en); // 使用英文类别
-    lv_obj_set_style_text_font(category_label, &lv_font_montserrat_12, LV_PART_MAIN); // 类别字体和大小
-    lv_obj_set_style_text_color(category_label, BUTTON_CATEGORY_TEXT_COLOR, LV_PART_MAIN);
-
-    // 7. 管理按钮状态
-    device_state_t *state_data = (device_state_t *)lv_malloc(sizeof(device_state_t));
-    if (!state_data) {
-        ESP_LOGE(TAG, "Failed to allocate memory for device state!");
-        return btn; // 或者更安全的处理
-    }
-    state_data->is_on = initial_state;
-    state_data->name_en = name_text_en; // 存储英文名称
-    state_data->icon_label = icon; 
-
-    lv_obj_set_user_data(btn, state_data); // 将状态数据附加到按钮
-
-    // 根据初始状态设置背景色
-    if (initial_state) {
-        lv_obj_set_style_bg_color(btn, BUTTON_ON_COLOR, LV_PART_MAIN);
-    } else {
-        lv_obj_set_style_bg_color(btn, BUTTON_OFF_COLOR, LV_PART_MAIN);
+    // 创建一个简单的标签
+    lv_obj_t *label = lv_label_create(scr); // 父对象是当前屏幕
+    if (!label) {
+        ESP_LOGE(TAG_MY_UI, "Failed to create label!");
+        return;
     }
 
-    // 8. 添加点击事件回调到整个按钮对象
-    // 这确保了点击按钮的任何部分都会触发状态切换
-    lv_obj_add_event_cb(btn, device_button_event_cb, LV_EVENT_CLICKED, NULL); 
+    // 设置标签的文本
+    lv_label_set_text(label, "Hello ESP32-S3!\nWi-Fi & LVGL Ready.");
 
-    return btn;
+    // 将标签居中对齐 (也可以使用 lv_obj_align_to 或 lv_obj_set_pos)
+    lv_obj_center(label);
+
+    ESP_LOGI(TAG_MY_UI, "Label created and centered.");
+
+    // 如果需要，可以在这里创建更多UI元素或加载一个更复杂的屏幕
+    // 例如，如果你想显示Wi-Fi状态：
+    // wifi_status_label = lv_label_create(scr);
+    // lv_obj_align(wifi_status_label, LV_ALIGN_BOTTOM_MID, 0, -10); // 底部中间
+    // lv_label_set_text(wifi_status_label, "Wi-Fi: Connecting...");
 }
 
-/**
- * @brief 初始化自定义用户界面
- */
-void my_ui_init(void) {
-    ESP_LOGI(TAG, "Initializing My UI (English Version)");
-
-    // 获取活动屏幕
-    lv_obj_t *scr = lv_scr_act();
-
-    // 设置屏幕背景色
-    lv_obj_set_style_bg_color(scr, SCREEN_BACKGROUND_COLOR, LV_PART_MAIN);
-
-    // 创建一个主容器用于放置所有设备按钮
-    lv_obj_t *main_container = lv_obj_create(scr);
-    lv_obj_remove_style_all(main_container); // 移除默认样式，使其完全自定义
-    lv_obj_set_size(main_container, LV_PCT(100), LV_PCT(100)); // 占满整个屏幕
-    lv_obj_center(main_container); // 居中显示
-
-    // 为主容器设置 Flex 布局，允许按钮自动换行
-    lv_obj_set_flex_flow(main_container, LV_FLEX_FLOW_ROW_WRAP);
-    lv_obj_set_flex_align(main_container, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
-
-    // 设置主容器的内边距和项目之间的间距
-    lv_obj_set_style_pad_all(main_container, 20, LV_PART_MAIN);         // 容器四周的内边距
-    lv_obj_set_style_pad_row(main_container, 20, LV_PART_MAIN);         // 行之间的垂直间距
-    lv_obj_set_style_pad_column(main_container, 20, LV_PART_MAIN);      // 列之间的水平间距 (项目之间的间距)
-
-    // 创建多个设备按钮示例 (使用英文名称和类别)
-    create_device_button(main_container, LV_SYMBOL_SETTINGS, "Living Room Light", "Lighting", false);
-    create_device_button(main_container, LV_SYMBOL_REFRESH, "Bedroom Fan", "Environment", true);
-    create_device_button(main_container, LV_SYMBOL_SETTINGS, "Air Conditioner", "Environment", false); 
-    create_device_button(main_container, LV_SYMBOL_VIDEO, "Television", "Entertainment", false);
-    create_device_button(main_container, LV_SYMBOL_LIST, "Living Room Curtain", "Shading", true);
-    create_device_button(main_container, LV_SYMBOL_PLUS, "Humidifier", "Environment", false); 
-    create_device_button(main_container, LV_SYMBOL_BELL, "Robot Vacuum", "Cleaning", true);
-    create_device_button(main_container, LV_SYMBOL_OK, "Smart Lock", "Security", false); 
-    create_device_button(main_container, LV_SYMBOL_AUDIO, "Background Music", "Entertainment", true);
-    create_device_button(main_container, LV_SYMBOL_EDIT, "Garage Door", "Security", false); 
-    create_device_button(main_container, LV_SYMBOL_CHARGE, "Charging Post", "Energy", false);
-    create_device_button(main_container, LV_SYMBOL_WIFI, "Router", "Network", true);
-    create_device_button(main_container, LV_SYMBOL_SETTINGS, "Kitchen Light", "Lighting", true); 
-    create_device_button(main_container, LV_SYMBOL_POWER, "Main Power Switch", "System", false);
-    create_device_button(main_container, LV_SYMBOL_WARNING, "Smoke Detector", "Security", true);
-    // 可以根据需要添加更多按钮
-
-    ESP_LOGI(TAG, "My UI Initialized Successfully (English Version)");
-}
-
+// 如果你在my_ui.h中声明了其他函数，在这里实现它们
+// void my_ui_update_wifi_status(bool connected) {
+//     if (wifi_status_label) {
+//         if (connected) {
+//             lv_label_set_text(wifi_status_label, "Wi-Fi: Connected");
+//             lv_obj_set_style_text_color(wifi_status_label, lv_color_hex(0x00FF00), LV_PART_MAIN); // 绿色
+//         } else {
+//             lv_label_set_text(wifi_status_label, "Wi-Fi: Disconnected");
+//             lv_obj_set_style_text_color(wifi_status_label, lv_color_hex(0xFF0000), LV_PART_MAIN); // 红色
+//         }
+//     }
+// }
