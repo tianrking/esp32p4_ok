@@ -1,0 +1,14 @@
+dependencies:
+  idf: '>=5.3'
+description: esp-dl is a lightweight and efficient neural network inference framework
+  designed specifically for ESP series chips.
+license: MIT
+repository: git://github.com/espressif/esp-dl.git
+repository_info:
+  commit_sha: 5b59fbc8602f698423b6dd8c6bd576b81a4b5df2
+  path: esp-dl
+targets:
+- esp32s3
+- esp32p4
+url: https://github.com/espressif/esp-dl/tree/master/esp-dl
+version: 3.0.0-rc.1

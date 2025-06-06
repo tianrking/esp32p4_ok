@@ -1,0 +1,7 @@
+build/*
+build
+*elf
+*bin
+*o
+*a
+
